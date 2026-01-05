@@ -1,0 +1,1033 @@
+// popup helper
+function showPopup(message, opts = {}, color=null) {
+    const popup = document.getElementById('popup');
+    if (!popup) return;
+    popup.textContent = message;
+    popup.classList.remove('hidden', 'show', 'shake', 'large');
+    if (popupLarge) popup.classList.add('large');
+    void popup.offsetWidth; // force reflow
+    if (opts.shake) popup.classList.add('shake');
+    popup.classList.add('show');
+    if (color) { popup.style.color = color; } else { popup.style.color = ''; }
+    setTimeout(() => {
+        popup.classList.remove('show', 'shake', 'large');
+        setTimeout(() => popup.classList.add('hidden'), 400);
+    }, opts.duration || 1800);
+}
+
+// confetti effect
+function confettiBurst() {
+    const canvas = document.getElementById('confetti-canvas');
+    if (!canvas) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    canvas.classList.remove('hidden');
+    const ctx = canvas.getContext('2d');
+    const colors = ['#ffd166', '#ff6a6a', '#2e86c1', '#ffffff', '#00e6b8'];
+    const particles = Array.from({length: 80}, () => ({
+        x: canvas.width/2,
+        y: 80,
+        r: Math.random()*7+4,
+        c: colors[Math.floor(Math.random()*colors.length)],
+        vx: (Math.random()-0.5)*12,
+        vy: Math.random()*-8-6,
+        g: 0.35+Math.random()*0.1
+    }));
+    let frame = 0;
+    function draw() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        particles.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, 2*Math.PI);
+            ctx.fillStyle = p.c;
+            ctx.fill();
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += p.g;
+        });
+        frame++;
+        if (frame < 60) requestAnimationFrame(draw);
+        else setTimeout(() => canvas.classList.add('hidden'), 600);
+    }
+    draw();
+}
+// game data
+let quizzes = [{
+        numbers: [13, 19, 7, 9, 1, 3],
+        answer: 11
+    },
+    {
+        numbers: [11, 18, 6, 15, 8, 29, 4],
+        answer: 23
+    },
+    {
+        numbers: [7, 9, 3, 5, 4, 6, 9, 10],
+        answer: 18
+    },
+    {
+        numbers: [4.5, 4.5, 5.5, 7.5, 1.5],
+        answer: 11.5
+    },
+    {
+        numbers: [3.7, 2.3, 5.5, 4.8, 1.2, 8.1],
+        answer: 11.5
+    },
+
+    {
+        numbers: [2.25, 7.5, 5.25, 1.7, 2.3, 0.25],
+        answer: 11.75
+    },
+    {
+        numbers: [0.125, 3.375, 2.75, 1.25, 0.875, 0.125, 1.625, 3.75, 1.25, 3.475, 3.275],
+        answer: 11.75
+    },
+];
+
+// shuffle list function
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function shuffleAll() {
+    quizzes.forEach(quiz => {
+        quiz.numbers = shuffle(quiz.numbers);
+    });
+}
+
+// game variables
+let answer = [];
+let quizIndex = 0;
+let difficulty = "medium";
+let difficultyIndex = 2;
+let newlives = 3;
+const hintCost = 15;
+let usedHint = false;
+// handle UI elements
+let settingsContainer = document.getElementById('settingsContainer');
+let levelIndex = document.getElementById("levelIndex");
+let stack = document.getElementById("stack");
+let targetNum = document.getElementById("targetNum");
+let answerSum = document.getElementById("answerSum");
+let xp = document.getElementById("xp");
+let lives = document.getElementById("lives");
+// level editor elements
+let levelEditor = document.getElementById('levelEditor');
+let editorNumbers = document.getElementById('editorNumbers');
+let editorTarget = document.getElementById('editorTarget');
+let editorName = document.getElementById('editorName');
+let editorSave = document.getElementById('editorSave');
+let editorClose = document.getElementById('editorClose');
+let customListEl = document.getElementById('customList');
+let customQuizzes = [];
+// handle buttons
+let resetBtn = document.getElementById("resetBtn");
+let easyBtn = document.getElementById("easyBtn");
+let mediumBtn = document.getElementById("mediumBtn");
+let hardBtn = document.getElementById("hardBtn");  
+let hintBtn = document.getElementById("hintBtn");
+let settingsBtn = document.getElementById("settingsBtn");
+let settingsClose = document.getElementById("settingsClose");
+let restoreValues = document.getElementById("restoreValues");  
+let soundToggle = document.getElementById("soundToggle");
+let confettiToggle = document.getElementById("confettiToggle");
+let popupSizeToggle = document.getElementById("popupSizeToggle");
+let editorToggle = document.getElementById('editorToggle');
+let titleClickToPlay = document.getElementById('title-clicktoplay');
+let versionInfo = document.getElementById('game-info');
+// stats viewer elements
+const statsBtn = document.getElementById('statsBtn');
+const statsAchievementsModal = document.getElementById('statsAchievementsModal');
+const statsClose = document.getElementById('statsClose');
+const statsTab = document.getElementById('statsTab');
+const achievementsTab = document.getElementById('achievementsTab');
+const statsPanel = document.getElementById('statsPanel');
+const achievementsPanel = document.getElementById('achievementsPanel');
+// handle sfx & music
+let clickSfx = new Audio('click.wav');
+let resetSfx = new Audio('reset.wav');
+let passSfx = new Audio('pass.wav');
+let bgMusic = new Audio('bgmusic.mp3');
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
+bgMusic.play();
+let overlay = document.body;
+
+setDim(true);
+window.addEventListener('click', () => {
+    if (!titleClickToPlay) return;
+    setDim(false, 'title');
+    bgMusic.play();
+    titleClickToPlay.style.display = 'none'
+    titleClickToPlay = null;    
+});
+
+// dim background 
+function setDim(on, edit=null) {
+    const bg = document.getElementById('bg');
+    if (!bg) return;
+    Array.from(bg.children).forEach(child => {
+        if (versionInfo && child.contains(versionInfo)) return;
+        if (edit === 'editor') {
+            if (child === levelEditor || (levelEditor && child.contains(levelEditor))) return;
+        }
+        if (edit === 'title') {if (child === titleClickToPlay) return; }
+        if (edit === 'settings') {
+            if (child === settingsContainer || (settingsContainer && child.contains(settingsContainer))) return;
+            if (child === settingsBtn) return;
+        }
+        if (on) child.classList.add('dimmed'); else child.classList.remove('dimmed');
+    });
+}
+// open/close with animation
+function openEditor() {
+    if (!levelEditor) return;
+    if (!levelEditor.classList.contains('hidden')) return;
+    // prep
+    levelEditor.classList.remove('hidden');
+    levelEditor.offsetHeight;
+    levelEditor.classList.add('open');
+    setDim(true, 'editor');
+    document.body.classList.add('modal-open');
+}
+
+function closeEditor() {
+    if (!levelEditor) return;
+    if (levelEditor.classList.contains('hidden')) return;
+    levelEditor.classList.remove('open');
+    setDim(false, 'editor');
+    const onEnd = (e) => {
+        if (e.target !== levelEditor) return;
+        levelEditor.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        levelEditor.removeEventListener('transitionend', onEnd);
+    };
+    levelEditor.addEventListener('transitionend', onEnd);
+    setTimeout(() => {
+        if (!levelEditor.classList.contains('hidden')) {
+            levelEditor.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+            levelEditor.removeEventListener('transitionend', onEnd);
+        }
+    }, 420);
+}
+
+// editor close keybinds
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (levelEditor && !levelEditor.classList.contains('hidden')) {
+            closeEditor();
+        }
+    }
+});
+// sound state persisted
+let soundMuted = localStorage.getItem('soundMuted') === 'true';
+let confettiEnabled = localStorage.getItem('confettiEnabled') !== 'false';
+let popupLarge = localStorage.getItem('popupLarge') === 'true';
+
+clickSfx.muted = soundMuted;
+resetSfx.muted = soundMuted;
+passSfx.muted = soundMuted;
+bgMusic.muted = soundMuted;
+
+function updateSoundUI() {
+    if (!soundToggle) return;
+    soundToggle.textContent = soundMuted ? '🔇' : '🔊';
+    soundToggle.setAttribute('aria-pressed', soundMuted ? 'true' : 'false');
+}
+function updateConfettiUI() {
+    if (!confettiToggle) return;
+    confettiToggle.textContent = confettiEnabled ? '🎉' : '🚫';
+    confettiToggle.setAttribute('aria-pressed', confettiEnabled ? 'true' : 'false');
+}
+function updatePopupSizeUI() {
+    if (!popupSizeToggle) return;
+    popupSizeToggle.textContent = popupLarge ? '🔲' : '🔳';
+    popupSizeToggle.setAttribute('aria-pressed', popupLarge ? 'true' : 'false');
+}
+updateSoundUI();
+updateConfettiUI();
+updatePopupSizeUI();
+
+if (soundToggle) {
+    soundToggle.addEventListener('click', () => {
+        soundMuted = !soundMuted;
+        clickSfx.muted = soundMuted;
+        resetSfx.muted = soundMuted;
+        passSfx.muted = soundMuted;
+        bgMusic.muted = soundMuted;
+        localStorage.setItem('soundMuted', soundMuted);
+        updateSoundUI();
+    });
+}
+if (confettiToggle) {
+    confettiToggle.addEventListener('click', () => {
+        confettiEnabled = !confettiEnabled;
+        localStorage.setItem('confettiEnabled', confettiEnabled);
+        updateConfettiUI();
+    });
+}
+if (popupSizeToggle) {
+    popupSizeToggle.addEventListener('click', () => {
+        popupLarge = !popupLarge;
+        localStorage.setItem('popupLarge', popupLarge);
+        updatePopupSizeUI();
+    });
+}
+
+// tooltip helper
+function attachTooltip(el, getMessage) {
+    if (!el) return () => {};
+    let _prevTitle = null;
+    const resolveMessage = () => (typeof getMessage === 'function' ? getMessage() : getMessage);
+    const show = () => {
+        const msg = resolveMessage();
+        _prevTitle = el.getAttribute('title');
+        if (_prevTitle !== null) el.removeAttribute('title');
+        if (msg) el.setAttribute('data-tooltip', msg);
+        // mark visible for css
+        el.setAttribute('data-tooltip-visible', 'true');
+    };
+    const hide = () => {
+        el.removeAttribute('data-tooltip-visible');
+        setTimeout(() => el.removeAttribute('data-tooltip'), 220);
+        if (_prevTitle !== null) {
+            el.setAttribute('title', _prevTitle);
+            _prevTitle = null;
+        }
+    };
+    el.addEventListener('mouseenter', show);
+    el.addEventListener('focus', show);
+    el.addEventListener('mouseleave', hide);
+    el.addEventListener('blur', hide);
+    // return a detach function
+    return () => {
+        el.removeEventListener('mouseenter', show);
+        el.removeEventListener('focus', show);
+        el.removeEventListener('mouseleave', hide);
+        el.removeEventListener('blur', hide);
+        hide();
+    };
+}
+
+
+function openSettings() {
+    if (!settingsContainer) return;
+    if (!settingsContainer.classList.contains('hidden')) return;
+    settingsContainer.classList.remove('hidden');
+    // Force reflow to ensure transition triggers
+    void settingsContainer.offsetWidth;
+    settingsContainer.classList.add('open');
+    setDim(true, 'settings');
+    document.body.classList.add('modal-open');
+}
+
+function closeSettings() {
+    if (!settingsContainer) return;
+    if (settingsContainer.classList.contains('hidden')) return;
+    settingsContainer.classList.remove('open');
+    setDim(false, 'settings');
+    const onEnd = (e) => {
+        if (e.target !== settingsContainer) return;
+        settingsContainer.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        settingsContainer.removeEventListener('transitionend', onEnd);
+    };
+    settingsContainer.addEventListener('transitionend', onEnd);
+    setTimeout(() => {
+        if (!settingsContainer.classList.contains('hidden')) {
+            settingsContainer.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+            settingsContainer.removeEventListener('transitionend', onEnd);
+        }
+    }, 420);
+}
+
+settingsBtn.addEventListener('click', openSettings);
+settingsClose.addEventListener('click', closeSettings);
+
+restoreValues.addEventListener('click', () => {
+    soundMuted = false;
+    confettiEnabled = true;
+    popupLarge = false;
+    localStorage.removeItem('soundMuted');
+    localStorage.removeItem('confettiEnabled');
+    localStorage.removeItem('popupLarge');
+    clickSfx.muted = soundMuted;
+    resetSfx.muted = soundMuted;
+    passSfx.muted = soundMuted;
+    bgMusic.muted = soundMuted;
+    updateSoundUI();
+    updateConfettiUI();
+    updatePopupSizeUI();
+});
+
+// attach generic tooltips
+attachTooltip(resetBtn, 'Reset the level');
+attachTooltip(easyBtn, 'EASY mode - 5 lives, hints enabled');
+attachTooltip(mediumBtn, 'MEDIUM mode - 3 lives, hints enabled');
+attachTooltip(hardBtn, 'HARD mode - 1 life, no hints. Sum is hidden');
+attachTooltip(editorToggle, 'LEVEL EDITOR - Create and save your own levels!');
+attachTooltip(settingsBtn, 'Open SETTINGS menu');
+attachTooltip(settingsClose, 'Close SETTINGS menu');
+attachTooltip(soundToggle, () => soundMuted ? 'Unmute all sounds' : 'Mute all sounds');
+attachTooltip(confettiToggle, () => confettiEnabled ? 'Disable confetti effects' : 'Enable confetti effects');
+attachTooltip(popupSizeToggle, () => popupLarge ? 'Use small popups' : 'Use large popups');
+attachTooltip(restoreValues, 'Restore default settings');
+// hint button with dynamic message
+attachTooltip(hintBtn, () => {
+    if (difficulty === 'hard') return 'Hints disabled in HARD mode';
+    if (parseInt(xp.innerText) < hintCost) return `You need ${hintCost - parseInt(xp.innerText)} more XP for a hint`;
+    return `Cost: ${hintCost} XP`;
+});
+
+attachTooltip(xp, ' Earn XP by completing levels. Spend your XP on hints!');
+attachTooltip(lives, 'Number of LIVES remaining. Lose all lives and it\'s GAME OVER!');
+attachTooltip(levelIndex, 'Current LEVEL. Advance by completing quizzes.');
+attachTooltip(targetNum, 'TARGET number. You need to reach it by removing numbers from the stack.');
+attachTooltip(answerSum, () => {
+    if (difficulty === 'hard') return 'Sum hidden in HARD mode';
+    return 'Current SUM of remaining numbers in the stack.';
+}
+);
+
+// Level editor: storage and UI
+function loadCustomQuizzes() {
+    try {
+        const stored = localStorage.getItem('customQuizzes');
+        if (stored) {
+            customQuizzes = JSON.parse(stored);
+            console.log(customQuizzes);
+            // push to quizzes
+            customQuizzes.forEach(q => quizzes.push(q));
+        }
+    } catch (e) { customQuizzes = []; }
+    renderCustomList();
+}
+
+function storeCustomQuizzes() {
+    localStorage.setItem('customQuizzes', JSON.stringify(customQuizzes));
+}
+
+function renderCustomList() {
+    if (!customListEl) return;
+    customListEl.innerHTML = '';
+    customQuizzes.forEach((quiz, i) => {
+        const li = document.createElement('li');
+        const meta = document.createElement('div');
+        meta.textContent = `#${i+1} ${quiz.name} — Target: ${quiz.answer} — [${quiz.numbers.join(', ')}]`;
+        const actions = document.createElement('div');
+        const play = document.createElement('button'); play.textContent = 'Play';
+        const del = document.createElement('button'); del.textContent = 'Delete';
+        play.addEventListener('click', () => {
+            // push to quizzes (avoid duplicating if already present)
+            quizzes.push(quiz);
+            quizIndex = quizzes.length - 1;
+            generateLevel();
+            closeEditor();
+        });
+        del.addEventListener('click', () => {
+            // remove from custom list and from quizzes
+            customQuizzes.splice(i, 1);
+            // remove first matching quiz from quizzes array
+            const idx = quizzes.findIndex(x => x.answer === quiz.answer && JSON.stringify(x.numbers) === JSON.stringify(quiz.numbers));
+            if (idx !== -1) quizzes.splice(idx, 1);
+            storeCustomQuizzes();
+            renderCustomList();
+        });
+        actions.appendChild(play);
+        actions.appendChild(del);
+        li.appendChild(meta);
+        li.appendChild(actions);
+        customListEl.appendChild(li);
+    });
+}
+
+if (editorToggle) {
+    editorToggle.addEventListener('click', () => {
+        if (!levelEditor) return;
+        const isHidden = levelEditor.classList.contains('hidden');
+        if (isHidden) {
+            openEditor();
+        } else {
+            closeEditor();
+        }
+    });
+}
+if (editorClose) {
+    editorClose.addEventListener('click', () => {
+        if (!levelEditor) return;
+        closeEditor();
+    });
+}
+
+if (editorSave) {
+    editorSave.addEventListener('click', () => {
+        const rawNumbers = (editorNumbers && editorNumbers.value) || '';
+        const rawTarget = (editorTarget && editorTarget.value) || '';
+        const numbers = rawNumbers.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+        const target = parseFloat(rawTarget);
+        const editname = editorName.value;
+        console.log(editname)
+        if (numbers.length === 0 || isNaN(target)) {
+            alert('Please enter valid numbers and a numeric target.');
+            return;
+        }
+        const newQuiz = {name: editname, numbers, answer: target};
+        customQuizzes.push(newQuiz);
+        quizzes.push(newQuiz);
+        storeCustomQuizzes();
+        renderCustomList();
+        quizIndex = quizzes.length - 1;
+        generateLevel();
+        // close with animation
+        closeEditor();
+    });
+}
+
+// load stored custom quizzes at startup
+loadCustomQuizzes();
+
+function resetGame() {
+    quizIndex = 0;
+    if (difficulty == "easy") {
+        newlives = 5;
+        difficultyIndex = 1;
+    } else if (difficulty == "medium") {
+        newlives = 3;
+        difficultyIndex = 2;
+    } else if (difficulty == "hard") {
+        newlives = 1;
+        answerSum.style.cursor = 'not-allowed';
+        difficultyIndex = 3;
+    }
+    lives.innerText = newlives;
+    xp.innerText = 0;
+    levelIndex.innerText = 1;
+    updateHintUI();
+    generateLevel();
+}
+resetBtn.addEventListener("click", () => {
+    resetSfx.play();
+    generateLevel();
+});
+
+easyBtn.addEventListener("click", () => {
+    difficulty = "easy";
+    clickSfx.play();
+    showPopup("Difficulty set to EASY.", {}, '#00e6b8');
+    resetGame();
+    updateDifficultyButtons();
+});
+
+mediumBtn.addEventListener("click", () => {
+    difficulty = "medium";
+    clickSfx.play();
+    showPopup("Difficulty set to MEDIUM.");
+    resetGame();
+    updateDifficultyButtons();
+});
+
+hardBtn.addEventListener("click", () => {
+    difficulty = "hard";
+    clickSfx.play();
+    showPopup("Difficulty set to HARD.", {}, '#ff6a6aff');   
+    resetGame();
+    updateDifficultyButtons();
+});
+
+
+function updateHintUI() {
+    if (!hintBtn) return;
+    const currentXP = parseInt(xp.innerText) || 0;
+    if (difficulty === 'hard' || currentXP < hintCost) {
+        hintBtn.style.color = '#ff6a6aff';
+        hintBtn.disabled = true;
+        hintBtn.style.cursor = 'not-allowed';
+        hintBtn.removeEventListener('click', giveHint);
+    } else {
+        hintBtn.style.color = '';
+        hintBtn.disabled = false;
+        hintBtn.style.cursor = 'pointer';
+        hintBtn.title = '';
+        hintBtn.removeEventListener('click', giveHint);
+        hintBtn.addEventListener('click', giveHint);
+    }
+}
+
+// initial UI update
+updateHintUI();
+
+function generateLevel() {
+    // setup quiz
+    if (difficulty != "easy") {
+        shuffleAll();
+    }
+    let quiz = quizzes[quizIndex];
+    targetNum.innerText = quiz.answer;
+    answer = [...quiz.numbers];
+    stack.innerHTML = "";
+
+    quiz.numbers.forEach((num, index) => {
+        let li = document.createElement("li");
+        li.dataset.index = index;
+        li.innerText = num;
+        li.addEventListener("click", (e) => {
+            // prevent double-clicks
+            li.style.pointerEvents = 'none';
+            // update answer for this index now, but defer level logic until after animation
+            answer[index] = 0;
+
+            // animate removal
+            const liStyle = getComputedStyle(li);
+            const liHeight = li.offsetHeight;
+            const liMargin = parseFloat(liStyle.marginBottom) || 0;
+
+            const placeholder = document.createElement('li');
+            placeholder.className = 'placeholder';
+            placeholder.style.height = liHeight + 'px';
+            placeholder.style.marginBottom = liMargin + 'px';
+
+            const clone = li.cloneNode(true);
+            clone.className = 'floating-clone';
+
+            const liRect = li.getBoundingClientRect();
+            clone.style.position = 'fixed';
+            clone.style.left = liRect.left + 'px';
+            clone.style.top = liRect.top + 'px';
+            clone.style.width = liRect.width + 'px';
+            clone.style.height = liRect.height + 'px';
+            clone.style.margin = '0';
+            clone.style.zIndex = 10000;
+
+            // safe finalize to run findAnswerSum once after animation completes
+            let finalized = false;
+            const finalize = () => {
+                if (finalized) return;
+                finalized = true;
+                console.log('calling findAnswerSum');
+                findAnswerSum();
+            };
+
+            // replace block (this will always run before generateLevel can clear stack because we defer calling it)
+            try {
+                stack.replaceChild(placeholder, li);
+            } catch (err) {
+                // if replaceChild fails (li not found), quietly insert placeholder at end
+                if (stack.contains(li)) stack.replaceChild(placeholder, li);
+            }
+
+            overlay.appendChild(clone);
+            requestAnimationFrame(() => {
+                placeholder.classList.add('collapse');
+                clone.classList.add('drop-out');
+                // cleanup & finalize
+                clone.addEventListener('animationend', () => {
+                    if (clone.parentElement === overlay) overlay.removeChild(clone);
+                    finalize();
+                }, { once: true });
+                // fallback: if animationend doesn't fire, remove after animation duration
+                setTimeout(() => {
+                    if (clone.parentElement === overlay) overlay.removeChild(clone);
+                    finalize();
+                }, 800);
+                placeholder.addEventListener('transitionend', () => {
+                    if (placeholder.parentElement === stack) stack.removeChild(placeholder);
+                }, { once: true });
+            });
+        });
+
+        stack.appendChild(li);
+    });
+    // Do NOT call findAnswerSum() here!
+}
+
+function findAnswerSum() {
+    let sum = 0;
+    answer.forEach((num) => {
+        sum += num;
+    });
+    if (difficulty == "hard") {
+        answerSum.innerText = "???";
+    } else {
+        answerSum.innerText = sum;
+    }
+    // check if the sum matches the target number
+    if (sum == quizzes[quizIndex].answer) {
+        setTimeout(() => {
+            showPopup('Correct! 🎉');
+            if (confettiEnabled) confettiBurst();
+            updateStatsOnWin();
+            checkAchievementsAfterWin();
+            setTimeout(() => {
+                try {
+                    nextQuiz();
+                } catch (err) {
+                    console.error('nextQuiz threw', err);
+                    showPopup('Error advancing to next level.', {shake:true});
+                }
+            }, 900);
+        }, 500);
+        return;
+    }
+    if (sum < quizzes[quizIndex].answer) {
+        generateLevel();
+        resetSfx.play();
+        lives.innerText = parseInt(lives.innerText) - 1;
+        showPopup('Your sum is too small. Try again.', {shake:true});
+        resetStreak();
+    }
+    if (parseInt(lives.innerText) <= 0) {
+        showPopup('Game Over! You have no more lives left.', {shake:true, duration: 2200});
+        setTimeout(() => resetGame(), 1200);
+        resetStreak();
+    }
+}
+
+function giveHint() {
+    xp.innerText = parseInt(xp.innerText) - hintCost;
+    usedHint = true;
+    updateHintUI();
+
+    // find removal candidates
+    const target = quizzes[quizIndex].answer;
+    const sum = answer.reduce((a,b)=>a+b, 0);
+    const diff = sum - target;
+
+    let candidates = [];
+    answer.forEach((num, i) => {
+        if (num > 0 && num <= diff) candidates.push({num, i});
+    });
+    let chosen;
+    if (candidates.length > 0) {
+        chosen = candidates.reduce((a,b) => (b.num > a.num ? b : a));
+    } else {
+        // fallback: choose smallest positive number
+        const pos = answer.map((n,i)=>({n,i})).filter(x=>x.n>0).sort((a,b)=>a.n-b.n);
+        chosen = pos[0];
+    }
+    console.log('giveHint: chosen', chosen);
+
+    // Remove previous hint glows
+    document.querySelectorAll('#stack li.hint').forEach(el => el.classList.remove('hint'));
+    // Add hint glow to the chosen box
+    if (chosen && typeof chosen.i === 'number') {
+        const stackItems = document.querySelectorAll('#stack li');
+        // stack is rendered in reverse, so find the correct index
+        const idx = answer.length - 1 - chosen.i;
+        if (stackItems[idx]) {
+            stackItems[idx].classList.add('hint');
+        }
+    }
+    // tooltip handling done above
+    updateHintUI();
+}
+
+// advance to the next quiz/level
+function nextQuiz() {
+    console.log('nextQuiz: current index', quizIndex);
+    quizIndex++;
+    if (quizIndex >= quizzes.length) {
+        quizIndex = 0;
+    }
+    levelIndex.innerText = quizIndex + 1;
+    generateLevel();
+    passSfx.play();
+    // showPopup and confetti handled in findAnswerSum
+    if (usedHint) {
+        xp.innerText = parseInt(xp.innerText) + (difficultyIndex*2) + (quizIndex * 1) - 2;
+    } else {
+        xp.innerText = parseInt(xp.innerText) + (difficultyIndex*4) + (quizIndex * 3) + 5;
+    }
+    usedHint = false;
+    // Remove any hint glows from previous level
+    setTimeout(() => {
+        document.querySelectorAll('#stack li.hint').forEach(el => el.classList.remove('hint'));
+    }, 0);
+    updateHintUI();
+}
+
+quizIndex = 0;
+generateLevel();
+
+let container = document.querySelector("#bg");
+
+window.onload = window.onresize = resizeGame;
+
+function resizeGame() {
+    let gameRatio = container.offsetWidth / container.offsetHeight;
+    let windowRatio = window.innerWidth / window.innerHeight;
+
+    container.style.position = "absolute";
+    container.style.left = `${(window.innerWidth - container.offsetWidth) / 2}px`;
+    container.style.top = `${(window.innerHeight - container.offsetHeight) / 2}px`;
+
+    let newScale;
+    if (gameRatio > windowRatio) {
+        newScale = window.innerWidth / container.offsetWidth;
+        if (newScale > 1) newScale = 1;
+    } else {
+        newScale = window.innerHeight / container.offsetHeight;
+        if (newScale > 1) newScale = 1;
+    }
+    container.style.transform = `scale(${newScale})`;
+}
+
+(function(){
+    const blobs = document.querySelectorAll('.animated-bg .blob');
+    if(!blobs || blobs.length === 0) return;
+    let mouseX = 0, mouseY = 0, ticking = false;
+    window.addEventListener('mousemove', (e)=>{
+        mouseX = (e.clientX / window.innerWidth - 0.5);
+        mouseY = (e.clientY / window.innerHeight - 0.5);
+        if(!ticking){
+            ticking = true;
+            requestAnimationFrame(()=>{
+                blobs.forEach((b,i)=>{
+                    const depth = (i+1) * 500;
+                    b.style.transform = `translate3d(${mouseX*depth}vw, ${mouseY*depth}vh, 0)`;
+                });
+                ticking = false;
+            });
+        }
+    }, {passive:true});
+})();
+
+function updateDifficultyButtons() {
+    const buttons = [easyBtn, mediumBtn, hardBtn];
+    buttons.forEach(btn => {
+        btn.classList.remove('difficulty-selected');
+        btn.disabled = false;
+        btn.style.pointerEvents = '';
+    });
+    if (difficulty === 'easy') {
+        easyBtn.classList.add('difficulty-selected');
+        easyBtn.disabled = true;
+        easyBtn.style.pointerEvents = 'none';
+    } else if (difficulty === 'medium') {
+        mediumBtn.classList.add('difficulty-selected');
+        mediumBtn.disabled = true;
+        mediumBtn.style.pointerEvents = 'none';
+    } else if (difficulty === 'hard') {
+        hardBtn.classList.add('difficulty-selected');
+        hardBtn.disabled = true;
+        hardBtn.style.pointerEvents = 'none';
+    }
+}
+
+// Call on startup and after reset
+updateDifficultyButtons();
+
+// Stats/Achievements Modal logic
+
+function openStatsModal() {
+    if (!statsAchievementsModal) return;
+    statsAchievementsModal.classList.remove('hidden');
+    void statsAchievementsModal.offsetWidth;
+    statsAchievementsModal.classList.add('open');
+    setDim(true, 'stats');
+    document.body.classList.add('modal-open');
+}
+function closeStatsModal() {
+    if (!statsAchievementsModal) return;
+    statsAchievementsModal.classList.remove('open');
+    setDim(false, 'stats');
+    const onEnd = (e) => {
+        if (e.target !== statsAchievementsModal) return;
+        statsAchievementsModal.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        statsAchievementsModal.removeEventListener('transitionend', onEnd);
+    };
+    statsAchievementsModal.addEventListener('transitionend', onEnd);
+    setTimeout(() => {
+        if (!statsAchievementsModal.classList.contains('hidden')) {
+            statsAchievementsModal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+            statsAchievementsModal.removeEventListener('transitionend', onEnd);
+        }
+    }, 420);
+}
+if (statsBtn) statsBtn.addEventListener('click', openStatsModal);
+if (statsClose) statsClose.addEventListener('click', closeStatsModal);
+
+// Tab switching
+if (statsTab && achievementsTab && statsPanel && achievementsPanel) {
+    statsTab.addEventListener('click', () => {
+        statsTab.classList.add('active');
+        achievementsTab.classList.remove('active');
+        statsPanel.classList.remove('hidden');
+        achievementsPanel.classList.add('hidden');
+    });
+    achievementsTab.addEventListener('click', () => {
+        achievementsTab.classList.add('active');
+        statsTab.classList.remove('active');
+        achievementsPanel.classList.remove('hidden');
+        statsPanel.classList.add('hidden');
+    });
+}
+
+// Example: update stats/achievements (stub, to be replaced with real logic)
+function updateStatsAndAchievements() {
+    document.getElementById('statGamesPlayed').textContent = localStorage.getItem('gamesPlayed') || '0';
+    document.getElementById('statBestStreak').textContent = localStorage.getItem('bestStreak') || '0';
+    document.getElementById('statAvgScore').textContent = localStorage.getItem('avgScore') || '0';
+    document.getElementById('statTotalXP').textContent = localStorage.getItem('totalXP') || '0';
+    // Achievements (add/remove class for unlocked)
+    if (localStorage.getItem('firstWin')) document.getElementById('achvFirstWin').classList.add('unlocked');
+    if (localStorage.getItem('streak5')) document.getElementById('achvStreak5').classList.add('unlocked');
+    if (localStorage.getItem('xp100')) document.getElementById('achvXP100').classList.add('unlocked');
+    if (localStorage.getItem('customLevel')) document.getElementById('achvCustomLevel').classList.add('unlocked');
+}
+if (statsBtn) statsBtn.addEventListener('click', updateStatsAndAchievements);
+
+function unlockAchievement(key, message, color = '#ffd166') {
+    if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, '1');
+        const el = document.getElementById('achv' + key.charAt(0).toUpperCase() + key.slice(1));
+        if (el) el.classList.add('unlocked');
+        showPopup('Achievement unlocked: ' + message, {}, color);
+        if (confettiEnabled) confettiBurst();
+        updateStatsAndAchievements && updateStatsAndAchievements();
+    }
+}
+
+// Example usage in game logic:
+// Call unlockAchievement('firstWin', 'First Win') when player wins for the first time
+// Call unlockAchievement('streak5', '5 Streak') when player reaches 5 streak
+// Call unlockAchievement('xp100', '100 XP') when player reaches 100 XP
+// Call unlockAchievement('customLevel', 'Custom Level Played') when a custom level is played
+
+// Integrate into game events:
+// After a win (in findAnswerSum or nextQuiz):
+function checkAchievementsAfterWin() {
+    // First win
+    if (!localStorage.getItem('firstWin')) {
+        unlockAchievement('firstWin', 'First Win!');
+    }
+    // 5 streak
+    const bestStreak = parseInt(localStorage.getItem('bestStreak') || '0', 10);
+    if (bestStreak >= 5 && !localStorage.getItem('streak5')) {
+        unlockAchievement('streak5', '5 Streak!');
+    }
+    // 100 XP
+    const totalXP = parseInt(localStorage.getItem('totalXP') || '0', 10);
+    if (totalXP >= 100 && !localStorage.getItem('xp100')) {
+        unlockAchievement('xp100', '100 XP!');
+    }
+}
+// After a custom level is played:
+function checkCustomLevelAchievement() {
+    if (!localStorage.getItem('customLevel')) {
+        unlockAchievement('customLevel', 'Custom Level Played!');
+    }
+}
+
+// --- Stats and Achievements Integration ---
+let currentStreak = 0;
+function updateStatsOnWin() {
+    // Games played
+    let gamesPlayed = parseInt(localStorage.getItem('gamesPlayed') || '0', 10) + 1;
+    localStorage.setItem('gamesPlayed', gamesPlayed);
+    // Streak
+    currentStreak++;
+    let bestStreak = parseInt(localStorage.getItem('bestStreak') || '0', 10);
+    if (currentStreak > bestStreak) {
+        bestStreak = currentStreak;
+        localStorage.setItem('bestStreak', bestStreak);
+    }
+    // XP
+    let totalXP = parseInt(localStorage.getItem('totalXP') || '0', 10) + (parseInt(xp.innerText) || 0);
+    localStorage.setItem('totalXP', totalXP);
+    // Average score (simple: totalXP/gamesPlayed)
+    let avgScore = Math.round(totalXP / gamesPlayed);
+    localStorage.setItem('avgScore', avgScore);
+    updateStatsAndAchievements && updateStatsAndAchievements();
+}
+function resetStreak() {
+    currentStreak = 0;
+}
+// --- Patch into game logic ---
+// In findAnswerSum, after a correct win:
+const origFindAnswerSum = findAnswerSum;
+findAnswerSum = function() {
+    let sum = 0;
+    answer.forEach((num) => { sum += num; });
+    if (difficulty == "hard") {
+        answerSum.innerText = "???";
+    } else {
+        answerSum.innerText = sum;
+    }
+    // check if the sum matches the target number
+    if (sum == quizzes[quizIndex].answer) {
+        setTimeout(() => {
+            showPopup('Correct! 🎉');
+            if (confettiEnabled) confettiBurst();
+            updateStatsOnWin();
+            checkAchievementsAfterWin();
+            setTimeout(() => {
+                try {
+                    nextQuiz();
+                } catch (err) {
+                    console.error('nextQuiz threw', err);
+                    showPopup('Error advancing to next level.', {shake:true});
+                }
+            }, 900);
+        }, 500);
+        return;
+    }
+    if (sum < quizzes[quizIndex].answer) {
+        generateLevel();
+        resetSfx.play();
+        lives.innerText = parseInt(lives.innerText) - 1;
+        showPopup('Your sum is too small. Try again.', {shake:true});
+        resetStreak();
+    }
+    if (parseInt(lives.innerText) <= 0) {
+        showPopup('Game Over! You have no more lives left.', {shake:true, duration: 2200});
+        setTimeout(() => resetGame(), 1200);
+        resetStreak();
+    }
+}
+// In resetGame, reset streak
+const origResetGame = resetGame;
+resetGame = function() {
+    resetStreak();
+    origResetGame();
+}
+// In custom level play (call checkCustomLevelAchievement)
+// Patch into renderCustomList/play button:
+const origRenderCustomList = renderCustomList;
+renderCustomList = function() {
+    if (!customListEl) return;
+    customListEl.innerHTML = '';
+    customQuizzes.forEach((quiz, i) => {
+        const li = document.createElement('li');
+        const meta = document.createElement('div');
+        meta.textContent = `#${i+1} ${quiz.name} — Target: ${quiz.answer} — [${quiz.numbers.join(', ')}]`;
+        const actions = document.createElement('div');
+        const play = document.createElement('button'); play.textContent = 'Play';
+        const del = document.createElement('button'); del.textContent = 'Delete';
+        play.addEventListener('click', () => {
+            quizzes.push(quiz);
+            quizIndex = quizzes.length - 1;
+            checkCustomLevelAchievement();
+            generateLevel();
+            closeEditor();
+        });
+        del.addEventListener('click', () => {
+            customQuizzes.splice(i, 1);
+            const idx = quizzes.findIndex(x => x.answer === quiz.answer && JSON.stringify(x.numbers) === JSON.stringify(quiz.numbers));
+            if (idx !== -1) quizzes.splice(idx, 1);
+            storeCustomQuizzes();
+            renderCustomList();
+        });
+        actions.appendChild(play);
+        actions.appendChild(del);
+        li.appendChild(meta);
+        li.appendChild(actions);
+        customListEl.appendChild(li);
+    });
+}

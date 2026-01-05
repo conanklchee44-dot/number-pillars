@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Sigmar+One&family=Walter+Turncoat&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Pillars</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="animated-bg" aria-hidden="true">
+        <div class="blob b1"></div>
+        <div class="blob b2"></div>
+        <div class="blob b3"></div>
+    </div>
+    <div id="bg">
+        <h1>Number Pillar</h1>
+        <div class="instructions-container">
+            <p>====Click a box to remove it ====</p>
+            <p>Make the sum of the boxes equal to the target number</p>
+        </div>
+        <div class="info-container">
+            <h3>Target Number: <span id="targetNum">11</span></h3>
+            <h3>Sum: <span id="answerSum">0</span></h3>
+                <button id="resetBtn">Reset</button>
+                <button id="settingsBtn">⚙️</button>
+        </div>
+        <button id="statsBtn" class="vertical-btn">Stats 🏆</button>
+        <div class="run-container">
+            <h3>XP: <span id="xp">0</span></h3>
+            <h3>Level: <span id="levelIndex">1</span></h3>
+            <h3>Lives: <span id="lives">3</span></h3>
+                <button id="hintBtn">hint (15 xp)</button>
+        </div>
+        <div class="difficulty-container">
+            <h3>Select Difficulty:</h3>
+            <button id="easyBtn">Easy</button>
+            <button id="mediumBtn">Medium</button>
+            <button id="hardBtn">Hard</button>
+        </div>
+        <div class="editor-container">
+            <h3>Level Editor:</h3>
+            <button id="editorToggle">Level Editor</button>
+            <div id="levelEditor" class="level-editor hidden">
+                <h2>Level Editor</h2>
+                <div class="editor-row">
+                    <label>Name:</label>
+                    <input id="editorName" placeholder="my cool challenge" />
+                </div>
+                <div class="editor-row">
+                    <label>Numbers:</label>
+                    <input id="editorNumbers" placeholder="e.g. 1,2,3,4,5" />
+                </div>
+                <div class="editor-row">
+                    <label>Target:</label>
+                    <input id="editorTarget" placeholder="e.g. 10" />
+                </div>
+                <div class="editor-actions">
+                    <button id="editorSave">Save Level</button>
+                    <button id="editorClose">Close</button>
+                </div>
+                <h4>Saved Custom Levels</h4>
+                <ul id="customList" class="custom-list"></ul>
+            </div>
+        </div>
+        <div id="settingsContainer" class="settings-container hidden">
+            <h2>Settings</h2>
+            <div class="settings-row">
+                <label for="confettiToggle">confetti:</label>
+                <button id="confettiToggle" aria-pressed="false">🎉</button>
+            </div>
+            <div class="settings-row">
+                <label for="popupSizeToggle">popup size:</label>
+                <button id="popupSizeToggle" aria-pressed="false">🔲</button>
+            </div>
+            <div class="settings-row">
+                <label for="soundToggle">sound:</label>
+                <button id="soundToggle" aria-pressed="false">🔊</button>
+            </div>
+            <button id="settingsClose">Close</button>
+            <button id="restoreValues">Restore Default Settings</button>
+        </div>
+        <div class="stack-container">
+        </div>
+        <div id="statsAchievementsModal" class="modal-container hidden">
+            <div class="modal-content">
+                <h2>Stats Viewer</h2>
+                <div class="modal-tabs">
+                    <button id="statsTab" class="modal-tab active">Statistics</button>
+                    <button id="achievementsTab" class="modal-tab">Achievements</button>
+                </div>
+                <div id="statsPanel" class="modal-panel">
+                    <ul id="statsList">
+                        <li>Total Games Played: <span id="statGamesPlayed">0</span></li>
+                        <li>Best Streak: <span id="statBestStreak">0</span></li>
+                        <li>Average Score: <span id="statAvgScore">0</span></li>
+                        <li>Total XP Earned: <span id="statTotalXP">0</span></li>
+                    </ul>
+                </div>
+                <div id="achievementsPanel" class="modal-panel hidden">
+                    <ul id="achievementsList">
+                        <li id="achvFirstWin">🏅 First Win</li>
+                        <li id="achvStreak5">🔥 5 Streak</li>
+                        <li id="achvXP100">💎 100 XP</li>
+                        <li id="achvCustomLevel">🛠️ Custom Level Played</li>
+                    </ul>
+                </div>
+                <button id="statsClose">Close</button>
+                <button id="resetStatsBtn">Reset Stats</button>
+            </div>
+        </div>
+        <div class="footer">
+            <p id="game-info">Programmed by Conan</p>
+            <p id="game-info">version -> 4.2-2</p>
+        </div>
+        <ul id="stack">
+        </ul>
+    </div>
+    <p id="title-clicktoplay">Click anywhere to play</p>
+    <div id="popup" class="popup hidden"></div>
+    <canvas id="confetti-canvas" class="hidden"></canvas>
+    <script src="script.js"></script>
+</body>
+
+</html>
