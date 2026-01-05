@@ -116,9 +116,27 @@
         <div class="footer">
             <p id="game-info">Programmed by Conan</p>
             <p id="game-info">version -> 4.2-2</p>
+            <button id="infoBtn" class="vertical-btn">Info 📖</button>
         </div>
         <ul id="stack">
         </ul>
+        <!-- Modal for README and Version History -->
+        <div id="infoModal" class="modal-container hidden">
+            <div class="modal-content">
+                <h2 id="infoModalTitle">Info</h2>
+                <div class="modal-tabs">
+                    <button id="readmeTab" class="modal-tab active">README</button>
+                    <button id="versionTab" class="modal-tab">Version History</button>
+                </div>
+                <div id="readmePanel" class="modal-panel">
+                    <pre id="readmeContent" style="white-space: pre-wrap; text-align:left; max-height: 40vh; overflow:auto;"></pre>
+                </div>
+                <div id="versionPanel" class="modal-panel hidden">
+                    <pre id="versionContent" style="white-space: pre-wrap; text-align:left; max-height: 40vh; overflow:auto;"></pre>
+                </div>
+                <button id="infoClose">Close</button>
+            </div>
+        </div>
     </div>
     <p id="title-clicktoplay">Click anywhere to play</p>
     <div id="popup" class="popup hidden"></div>

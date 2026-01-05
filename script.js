@@ -148,6 +148,66 @@ const statsPanel = document.getElementById('statsPanel');
 const achievementsPanel = document.getElementById('achievementsPanel');
 // handle sfx & music
 let clickSfx = new Audio('click.wav');
+// --- Info Modal for README and Version History ---
+const infoBtn = document.getElementById('infoBtn');
+const infoModal = document.getElementById('infoModal');
+const infoClose = document.getElementById('infoClose');
+const readmeTab = document.getElementById('readmeTab');
+const versionTab = document.getElementById('versionTab');
+const readmePanel = document.getElementById('readmePanel');
+const versionPanel = document.getElementById('versionPanel');
+const readmeContent = document.getElementById('readmeContent');
+const versionContent = document.getElementById('versionContent');
+
+// Preload README and version-history content (static, loaded at build time)
+readmeContent.textContent = `# Number Pillars\nA simple math game I got and redesigned to be complex\n## how to play\nclick a box to remove it from the stack. \nTry to make the stack total sum equal to the target number, displayed on the left of the screen\n### more stuff\n - Change difficulty using the difficulty settings (EASY, MEDIUM, HARD)\n - Create your own levels using the level editor!\n - Check your stats in the stats viewer\n - Adjust settings in the settings menu\n## nerd stuff\nI just used nested dictionaries for the main levels\n// game data\nlet quizzes = [{\n        numbers: [13, 19, 7, 9, 1, 3],\n        answer: 11\n    },\n    {\n        numbers: [11, 18, 6, 15, 8, 29, 4],\n        answer: 23\n    },\n    {\n        numbers: [7, 9, 3, 5, 4, 6, 9, 10],\n        answer: 18\n    },\n    {\n        numbers: [4.5, 4.5, 5.5, 7.5, 1.5],\n        answer: 11.5\n    },\n    {\n        numbers: [3.7, 2.3, 5.5, 4.8, 1.2, 8.1],\n        answer: 11.5\n    },\n    {\n        numbers: [2.25, 7.5, 5.25, 1.7, 2.3, 0.25],\n        answer: 11.75\n    },\n    {\n        numbers: [0.125, 3.375, 2.75, 1.25, 0.875, 0.125, 1.625, 3.75, 1.25, 3.475, 3.275],\n        answer: 11.75\n    },\n];\nCustom quizzes are stored in localStorage like so:\nfunction loadCustomQuizzes() {\n    try {\n        const stored = localStorage.getItem('customQuizzes');`;
+versionContent.textContent = `v0.9 INDEV: initial commit\nv1.0 PRE-ALPHA: added 3 new levels\nv1.1 ALPHA: added 2 new levels; added sound effects\nv1.1-2 BETA: added fonts\nv1.2: added 2 new levels\nv1.2-2: changed description\nv1.2-3: fixed minor bugs\nv1.2-20: redid layout; added reset button\nv1.3: added more fonts\nv1.4: added coins display\nv1.4-2: added level display\nv1.4-3: changed level display to show current level, not index\nv1.4-4: changed coin calculation formula\nv1.5: added lives system; fixed coin calculation bug\nv1.5-2: fixed lives not resetting on game over bug\nv1.5-3: changed game over behavior to reset level and coins\nv1.6: added styles to new displays\nv1.6-2: updated css for new displays\nv1.6-3: adjusted layout margins for better appearance\nv1.7: added animated background blobs\nv1.7-2: changed css display opacity\nv1.8: quiz data refactored\nv1.8-2: quiz answers are now shuffled every attempt\nv1.9: added button drop animation\nv1.9-2: fixed drop animation bugs; changed speed and distance\nv1.9-3: added button drop animation for other buttons\nv1.9-4: fixed button drop animation bugs\nv1.9-20: generateLevel function refactored\nv2.0: added difficulty settings (easy, medium, hard)\nv2.0-2: added difficulty buttons and related css\nv2.0-3: added modular resetGame function\nv2.0-20: reset game on difficulty change\nv2.0-21: fixed lives not resetting properly bug; refactored resetGame function\nv2.0-22: refactored resetBtn in css and html\nv2.1: changed difficulty-container layout; changed fonts for score displays\nv2.1-2: adjusted difficulty-container margins; changed button font size to 1rem\nv2.1-20: fixed some button hover bugs\nv2.1-21: fixed more button hover bugs\nv2.1-22: coins calculation now factors difficulty level\nv2.2: coins renamed to xp\nv2.2-2: updated css for xp display; closed bg div in html\nv2.3: added stack-container\nv2.3-1: added styles for stack-container in css; refactored difficulty-container in css\nv2.3-2: adjusted stack-container position; fixed xp integer display bug\nv2.3-3: changed fonts\nv2.4: on hard difficulty, answer sum is hidden\nv2.5: added hint button that costs xp; added mute button\nv2.5-2: adjusted hint button styles\nv2.5-20: hint button disabled on hard difficulty\nv2.5-21: added updateHintUI function; fixed bugs`;
+
+function openInfoModal() {
+    if (!infoModal) return;
+    infoModal.classList.remove('hidden');
+    void infoModal.offsetWidth;
+    infoModal.classList.add('open');
+    setDim(true, 'info');
+    document.body.classList.add('modal-open');
+}
+function closeInfoModal() {
+    if (!infoModal) return;
+    infoModal.classList.remove('open');
+    setDim(false, 'info');
+    const onEnd = (e) => {
+        if (e.target !== infoModal) return;
+        infoModal.classList.add('hidden');
+        document.body.classList.remove('modal-open');
+        infoModal.removeEventListener('transitionend', onEnd);
+    };
+    infoModal.addEventListener('transitionend', onEnd);
+    setTimeout(() => {
+        if (!infoModal.classList.contains('hidden')) {
+            infoModal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+            infoModal.removeEventListener('transitionend', onEnd);
+        }
+    }, 420);
+}
+if (infoBtn) infoBtn.addEventListener('click', openInfoModal);
+if (infoClose) infoClose.addEventListener('click', closeInfoModal);
+
+// Tab switching for info modal
+if (readmeTab && versionTab && readmePanel && versionPanel) {
+    readmeTab.addEventListener('click', () => {
+        readmeTab.classList.add('active');
+        versionTab.classList.remove('active');
+        readmePanel.classList.remove('hidden');
+        versionPanel.classList.add('hidden');
+    });
+    versionTab.addEventListener('click', () => {
+        versionTab.classList.add('active');
+        readmeTab.classList.remove('active');
+        versionPanel.classList.remove('hidden');
+        readmePanel.classList.add('hidden');
+    });
+}
 let resetSfx = new Audio('reset.wav');
 let passSfx = new Audio('pass.wav');
 let bgMusic = new Audio('bgmusic.mp3');
